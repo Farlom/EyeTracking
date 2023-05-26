@@ -73,7 +73,7 @@ with FaceLandmarker.create_from_options(options) as landmarker:
         rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
         mp_image = mp.Image(image_format=mp.ImageFormat.SRGB, data=frame)
 
-
+        #
         # cv2.circle(frame, landmarker.detect_async(mp_image, int(cap.get(cv2.CAP_PROP_POS_MSEC))), 2, (255, 0, 0))
         landmarker.detect_async(mp_image, int(cap.get(cv2.CAP_PROP_POS_MSEC)))
         # landmarker.
