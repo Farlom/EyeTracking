@@ -96,11 +96,11 @@ with FaceLandmarker.create_from_options(options) as landmarker:
         print(center[0], center[1])
         # print(top_eye_x, bottom_eye_x, top_eye_y, bottom_eye_y)
         # new_frame = frame[top_eye_x:bottom_eye_x, top_eye_y:bottom_eye_y]
-        new_frame = frame[cX-50:cX+50, cY-50:cY+50]
+        # new_frame = frame[cX-50:cX+50, cY-50:cY+50]
         # new_frame = frame[20:100, 20:100]
-        new_frame = cv2.resize(new_frame, (500, 500))
+        # new_frame = cv2.resize(new_frame, (500, 500))
         # print(new_frame)
-        cv2.imshow('new', new_frame)
+        # cv2.imshow('new', new_frame)
         # cv2.polylines(frame, [mesh_points[LEFT_EYE2]], True, (0, 255, 0), 1, cv2.LINE_AA)
         # cv2.circle(ndarray, center, int(rad), (0, 255, 0), 1, cv2.LINE_AA)
         # cv2.circle(frame, (top_eye_x, top_eye_y), 5,(0, 255, 0), 1, cv2.LINE_AA)
