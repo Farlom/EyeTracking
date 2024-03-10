@@ -3,7 +3,7 @@ import cv2 as cv
 import glob
 
 CHESSBOARD_WIDTH = int(6)
-CHESSBOARD_HEIGHT = int(7)
+CHESSBOARD_HEIGHT = int(6)
 
 # termination criteria
 criteria = (cv.TERM_CRITERIA_EPS + cv.TERM_CRITERIA_MAX_ITER, 30, 0.001)
@@ -23,11 +23,14 @@ for fname in images:
     ret, corners = cv.findChessboardCorners(gray, (CHESSBOARD_HEIGHT, CHESSBOARD_WIDTH), None)
     # If found, add object points, image points (after refining them)
     if ret == True:
-        print(corners)
+        print(corners[0])
+
+        for i in enumerate(corners):
+            print(i[1])
         for corner in corners:
             for coord in corner:
                 cv.line(cpy, (int(coord[0]), int(coord[1])), (int(corners[1][0][0]), int(corners[1][0][1])), (0, 0, 255), 2, cv.LINE_AA)
-        print(objp)
+        # print(objp)
         objpoints.append(objp)
         corners2 = cv.cornerSubPix(gray,corners, (11,11), (-1,-1), criteria)
         imgpoints.append(corners2)
@@ -37,7 +40,7 @@ for fname in images:
         cv.imshow('cpy', cpy)
         cv.waitKey(50000)
 
-        print(objpoints, imgpoints)
+        # print(objpoints, imgpoints)
         ret, mtx, dist, rvecs, tvecs = cv.calibrateCamera(objpoints, imgpoints, gray.shape[::-1], None, None)
 
         img = cv.imread('images/calib_radial.jpg')

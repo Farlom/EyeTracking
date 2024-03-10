@@ -14,7 +14,7 @@ LEFT_EYE = [33, 7, 163, 144, 145, 153, 154, 155, 133, 173, 157, 158, 159, 160, 1
 RIGHT_EYE = [362, 382, 381, 380, 374, 373, 390, 249, 263, 466, 388, 387, 386, 385, 384, 398]
 faces = []
 
-cap = cv2.VideoCapture('./tracking/videos/output_exp3.avi')
+cap = cv2.VideoCapture('./videos/output_exp1.avi')
 
 old_l_center_x = 0
 old_l_center_y = 0

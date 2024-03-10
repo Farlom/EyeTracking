@@ -4,3 +4,7 @@ __pycache__/
 *.png
 *.jpeg
 *.jpg
+tracking/test_scripts/
+.DS_Store
+camera_calibration/.DS_Store
+tracking/.DS_Store
