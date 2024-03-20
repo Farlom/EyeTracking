@@ -25,7 +25,7 @@ class Calibration(object):
             side: Indicates whether it's the left eye (0) or the right eye (1)
         """
         if side == 0:
-            print(1, int(sum(self.thresholds_left) / len(self.thresholds_left)))
+            # print(1, int(sum(self.thresholds_left) / len(self.thresholds_left)))
             return int(sum(self.thresholds_left) / len(self.thresholds_left))
         elif side == 1:
             return int(sum(self.thresholds_right) / len(self.thresholds_right))
@@ -58,15 +58,16 @@ class Calibration(object):
         trials = {}
 
         for threshold in range(5, 100, 5):
-            # cv2.imwrite('puppil.png', eye_frame)
+            # cv2.imwrite('eye_frame.png', eye_frame)
 
             iris_frame = Pupil.image_processing(eye_frame, threshold)
-            # cv2.imwrite('puppil1.png', iris_frame)
+            # cv2.imwrite(f'iris_frame_{threshold}_thresh.png', iris_frame)
 
             # print(threshold)
             trials[threshold] = Calibration.iris_size(iris_frame)
 
         best_threshold, iris_size = min(trials.items(), key=(lambda p: abs(p[1] - average_iris_size)))
+        # print(best_threshold)
         return best_threshold
 
     def evaluate(self, eye_frame, side):

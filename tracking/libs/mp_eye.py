@@ -42,6 +42,7 @@ class Eye(object):
             landmarks (dlib.full_object_detection): Facial landmarks for the face region
             points (list): Points of an eye (from the 68 Multi-PIE landmarks)
         """
+        cv2.imwrite('face_frame.png', cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY))
         region = np.array([landmarks[p] for p in points], dtype=np.int32)
         # print(region)
         self.landmark_points = region
@@ -58,19 +59,7 @@ class Eye(object):
         eye = cv2.bitwise_and(invert_frame, invert_frame, mask=mask)
         # eye = cv2.cvtColor(eye, cv2.COLOR_GRAY2RGB)
         eye = cv2.bitwise_not(eye)
-        # cv2.imwrite('e.png', eye)
 
-        # black_frame = np.zeros((height, width), np.uint8)
-        # mask = np.full((height, width), 255, np.uint8)
-        # cv2.fillPoly(mask, [region], (0, 0, 0))
-        # cv2.imwrite('m.png', mask)
-        # cv2.imshow('masas', mask)
-        # print(mask.shape)
-        # eye = cv2.bitwise_not(black_frame, frame.copy(), mask=mask)
-        # cv2.imshow('eye', eye)
-        # print(mask.shape)
-        # cv2.imwrite('f.png', eye)
-        # input()
         # Cropping on the eye
         margin = 5
         max_x = (max(region, key=lambda item: item[0]))[0] + margin
@@ -80,7 +69,7 @@ class Eye(object):
 
         self.frame = eye[min_y:max_y, min_x:max_x]
         # print(self.frame.shape)
-        # cv2.imwrite('fr.png', self.frame)
+        # cv2.imwrite('eye_frame.png', self.frame)
         # cv2.imshow('eyeye', self.frame)
 
         self.origin = (min_x, min_y)

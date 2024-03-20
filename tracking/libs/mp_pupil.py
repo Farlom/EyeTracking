@@ -31,13 +31,13 @@ class Pupil(object):
 
         kernel = np.ones((3, 3), np.uint8)
         new_frame = cv2.bilateralFilter(eye_frame, 10, 15, 15)
-        # cv2.imwrite('fn.png', new_frame)
+        # cv2.imwrite('eye_bilateral.png', new_frame)
 
         new_frame = cv2.erode(new_frame, kernel, iterations=3)
-        # cv2.imwrite('fer.png', new_frame)
+        # cv2.imwrite('eye_erode.png', new_frame)
 
         new_frame = cv2.threshold(new_frame, threshold, 255, cv2.THRESH_BINARY)[1]
-        # cv2.imwrite('f.png', new_frame)
+        # cv2.imwrite('eye_threshold.png', new_frame)
         # print(threshold)
         return new_frame
 
