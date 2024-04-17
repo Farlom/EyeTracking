@@ -73,7 +73,7 @@ class Eye(object):
         # cv2.imshow('eyeye', self.frame)
 
         self.origin = (min_x, min_y)
-        cv2.imshow('s', self.frame)
+        # cv2.imshow('s', self.frame)
         height, width = self.frame.shape[:2]
         width -= 2 * margin * 0
         height -= 2 * margin * 0

@@ -5,6 +5,7 @@ __pycache__/
 *.jpeg
 *.jpg
 tracking/test_scripts/
+tools/
 .DS_Store
 camera_calibration/.DS_Store
 tracking/.DS_Store

@@ -14,8 +14,8 @@ LEFT_EYE = [33, 7, 163, 144, 145, 153, 154, 155, 133, 173, 157, 158, 159, 160, 1
 RIGHT_EYE = [362, 382, 381, 380, 374, 373, 390, 249, 263, 466, 388, 387, 386, 385, 384, 398]
 faces = []
 
-cap = cv2.VideoCapture('./videos/output_exp1.avi')
-
+# cap = cv2.VideoCapture('./videos/output_exp1.avi')
+cap = cv2.VideoCapture("rtsp://admin:vide0-II@172.20.6.234:554")
 old_l_center_x = 0
 old_l_center_y = 0
 old_r_center_x = 0

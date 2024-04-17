@@ -36,9 +36,9 @@ class BarrelDeformer:
 
 
 # adjust k_1 and k_2 to achieve the required distortion
-k_1 = -0.15
+k_1 = -0.21
 k_2 = 0 # -0.25
-im = Image.open('./images/1.png')
+im = Image.open('../tracking/photos/img.png')
 im.putalpha(255)
 w, h = im.size
 im_deformed = ImageOps.deform(im, BarrelDeformer())
