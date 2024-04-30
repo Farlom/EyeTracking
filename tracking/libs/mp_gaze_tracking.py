@@ -23,13 +23,12 @@ class GazeTracking(object):
 
     def __init__(self, detector, shape):
         self.frame = None
+        self.num_faces = 0
         self.eye_left = None
         self.eye_right = None
         self.calibration = Calibration()
         self.face = None
         self.face_frame = None
-        self.left_eye = None
-        self.right_eye = None
 
         self.left_pupil = None
         self.right_pupil = None
@@ -50,7 +49,6 @@ class GazeTracking(object):
         self.point_2d = None
         # _face_detector is used to detect faces
         self.__face_detector = mp.solutions.face_detection.FaceDetection()
-
         # _predictor is used to get facial landmarks of a given face
         self.__face_landmarker = mp.solutions.face_mesh.FaceMesh(refine_landmarks=False)
 
@@ -71,33 +69,68 @@ class GazeTracking(object):
         result = self.detector.process(frame)
 
         if result.detections:
-            result = result.detections[0].location_data.relative_bounding_box
+            self.num_faces = len(result.detections)
+            # print(num_faces)
+            if self.num_faces == 1:
+                result_faces = result.detections[0].location_data.relative_bounding_box
 
-            epsilon = 10
+                epsilon = 10
 
-            x1 = round(result.xmin * self.width)
-            y1 = round(result.ymin * self.height)
-            x2 = round((result.xmin + result.width) * self.width)
-            y2 = round((result.ymin + result.height) * self.height)
+                x1 = round(result_faces.xmin * self.width)
+                y1 = round(result_faces.ymin * self.height)
+                x2 = round((result_faces.xmin + result_faces.width) * self.width)
+                y2 = round((result_faces.ymin + result_faces.height) * self.height)
 
-            if settings.ENABLE_SMOOTH_BBOX_RENDER:
-                if self.face and abs(self.face[0][0] - x1) <= epsilon:
-                    x1 = self.face[0][0]
-                if self.face and abs(self.face[0][1] - y1) <= epsilon:
-                    y1 = self.face[0][1]
-                if self.face and abs(self.face[1][0] - x2) <= epsilon:
-                    x2 = self.face[1][0]
-                if self.face and abs(self.face[1][1] - y2) <= epsilon:
-                    y2 = self.face[1][1]
+                if settings.ENABLE_SMOOTH_BBOX_RENDER:
+                    if self.face and abs(self.face[0][0] - x1) <= epsilon:
+                        x1 = self.face[0][0]
+                    if self.face and abs(self.face[0][1] - y1) <= epsilon:
+                        y1 = self.face[0][1]
+                    if self.face and abs(self.face[1][0] - x2) <= epsilon:
+                        x2 = self.face[1][0]
+                    if self.face and abs(self.face[1][1] - y2) <= epsilon:
+                        y2 = self.face[1][1]
 
-            faces = [(x1, y1), (x2, y2)]
-            self.face = faces
 
-            if settings.SHOW_FACE_RECTANGLE_2D:
-                cv2.rectangle(frame, faces[0], faces[1], (0, 255, 0), 1)
+                faces = [(x1, y1), (x2, y2)]
+                self.face = faces
 
-            face_frame = frame[y1:y2, x1:x2]
-            self.face_frame = face_frame
+                if settings.SHOW_FACE_RECTANGLE_2D:
+                    cv2.rectangle(frame, faces[0], faces[1], (0, 255, 0), 1)
+                    # pass
+                face_frame = frame[y1:y2, x1:x2]
+                self.face_frame = face_frame
+            elif self.num_faces == 2:
+                distance = self.width
+                for i in range(self.num_faces):
+                    result_faces = result.detections[i].location_data.relative_bounding_box
+
+                    epsilon = 10
+
+                    x1 = round(result_faces.xmin * self.width)
+                    y1 = round(result_faces.ymin * self.height)
+                    x2 = round((result_faces.xmin + result_faces.width) * self.width)
+                    y2 = round((result_faces.ymin + result_faces.height) * self.height)
+
+                    if settings.ENABLE_SMOOTH_BBOX_RENDER:
+                        if self.face and abs(self.face[0][0] - x1) <= epsilon:
+                            x1 = self.face[0][0]
+                        if self.face and abs(self.face[0][1] - y1) <= epsilon:
+                            y1 = self.face[0][1]
+                        if self.face and abs(self.face[1][0] - x2) <= epsilon:
+                            x2 = self.face[1][0]
+                        if self.face and abs(self.face[1][1] - y2) <= epsilon:
+                            y2 = self.face[1][1]
+
+                    cv2.rectangle(self.frame, (x1, y1), (x2, y2), (255, 0, 0), 1)
+
+                    if x1 + x2 // 2 < distance:
+                        distance = x1 + x2 // 2
+                        faces = [(x1, y1), (x2, y2)]
+                        self.face = faces
+                        face_frame = frame[y1:y2, x1:x2]
+                        self.face_frame = face_frame
+
             # cv2.imshow('f',face_frame)
             with mp.solutions.face_mesh.FaceMesh(
                 static_image_mode=False,
@@ -106,9 +139,9 @@ class GazeTracking(object):
                 min_detection_confidence=0.5,
                 min_tracking_confidence=0.5
             ) as mesh:
-                res_landmarks = mesh.process(face_frame).multi_face_landmarks
+                res_landmarks = mesh.process(self.face_frame).multi_face_landmarks
                 if res_landmarks:
-                    face_height, face_width = face_frame.shape[:2]
+                    face_height, face_width = self.face_frame.shape[:2]
 
                     landmarks = res_landmarks[0].landmark
                     landmarks = np.array(
@@ -124,8 +157,13 @@ class GazeTracking(object):
                             else:
                                 landmarks = self.landmarks
                     self.landmarks = landmarks
-                    self.eye_left = Eye(face_frame, landmarks, 0, self.calibration)
-                    self.eye_right = Eye(face_frame, landmarks, 1, self.calibration)
+                    self.eye_left = Eye(self.face_frame, landmarks, 0, self.calibration)
+                    self.eye_right = Eye(self.face_frame, landmarks, 1, self.calibration)
+                else:
+                    self.landmarks = None
+        else:
+            self.num_faces = 0
+
 
     def refresh(self, frame: np.ndarray) -> None:
         """Refreshes the frame and analyzes it.
@@ -210,10 +248,6 @@ class GazeTracking(object):
         left_eye_center_x, left_eye_center_y = self.pupil_left_coords()[2:]
         right_eye_center_x, right_eye_center_y = self.pupil_right_coords()[2:]
 
-        # cv2.line(img, (left_eye_center_x, left_eye_center_y), (right_eye_center_x, right_eye_center_y), (0, 255, 0), 2)
-        # cv2.circle(img, (left_eye_center_x, left_eye_center_y), 3, (0, 0, 255), -1)
-        # cv2.circle(img, (right_eye_center_x, right_eye_center_y), 3, (0, 0, 255), -1)
-
         # actual distance between eyes in px
         w = math.sqrt((right_eye_center_x - left_eye_center_x) ** 2 + (right_eye_center_y - left_eye_center_y) ** 2)
         # print(w)
@@ -221,9 +255,8 @@ class GazeTracking(object):
         # average distance between eyes in cm with the d = 50
         W = 6.3
         d = 50
-
-        print((w * d) / W)
-        f = 1200
+        # print((w * d) / W)
+        f = 1000
         d = (W * f) / w
         # print(d)
         cv2.putText(img, f'distance (cm): {d:.3f}', (100, 500), cv2.FONT_HERSHEY_SIMPLEX, 2, (0, 0, 0), 3)
@@ -512,7 +545,7 @@ class GazeTracking(object):
                 # Draw gaze line into screen
                 p1 = (int(pupil[0]), int(pupil[1]))
                 p2 = (int(gaze[0]), int(gaze[1]))
-                print(S_right)
+                # print(S_right)
                 cv2.circle(img, (round(eye_pupil2D[0][0][0]), round(eye_pupil2D[0][0][1])), 3, (255, 255, 255), 2)
                 cv2.line(img, p1, p2, (0, 0, 255), 2)
 
@@ -532,7 +565,8 @@ class GazeTracking(object):
                 pupil_world_cord = transformation @ np.array([[pupil[0], pupil[1], 0, 1]]).T
 
                 # 3D gaze point (10 is arbitrary value denoting gaze distance)
-                S = EYE_BALL_CENTER_MEAN + (pupil_world_cord - EYE_BALL_CENTER_MEAN) * int(self.distance)
+                S = EYE_BALL_CENTER_MEAN + (pupil_world_cord - EYE_BALL_CENTER_MEAN) * int(10)
+                # print(S)
 
                 # Project a 3D gaze direction onto the image plane.
 
@@ -541,7 +575,7 @@ class GazeTracking(object):
                                                      translation_vector, camera_matrix, dist_coeffs)
                 # project 3D head pose into the image plane
                 (head_pose, _) = cv2.projectPoints(
-                    (int(pupil_world_cord[0]), int(pupil_world_cord[1]), int(4 * self.distance)),
+                    (int(pupil_world_cord[0]), int(pupil_world_cord[1]), int(40)),
                     rotation_vector,
                     translation_vector, camera_matrix, dist_coeffs)
                 # correct gaze for head rotation
@@ -572,24 +606,24 @@ class GazeTracking(object):
             RIGHT_MOUSE_CORNER
         ], dtype='double')
 
-        model_points = np.array([
-            (0.0, 0.0, 0.0),  # Nose tip
-            (0.0, -330.0, -65.0),  # Chin
-            (-225.0, 170.0, -135.0),  # Left eye left corner
-            (225.0, 170.0, -135.0),  # Right eye right corner
-            (-150.0, -150.0, -125.0),  # Left Mouth corner
-            (150.0, -150.0, -125.0)  # Right mouth corner
-
-        ])
-
         # model_points = np.array([
         #     (0.0, 0.0, 0.0),  # Nose tip
-        #     (0, -63.6, -12.5),  # Chin
-        #     (-43.3, 32.7, -26),  # Left eye, left corner
-        #     (43.3, 32.7, -26),  # Right eye, right corner
-        #     (-28.9, -28.9, -24.1),  # Left Mouth corner
-        #     (28.9, -28.9, -24.1)  # Right mouth corner
+        #     (0.0, -330.0, -65.0),  # Chin
+        #     (-225.0, 170.0, -135.0),  # Left eye left corner
+        #     (225.0, 170.0, -135.0),  # Right eye right corner
+        #     (-150.0, -150.0, -125.0),  # Left Mouth corner
+        #     (150.0, -150.0, -125.0)  # Right mouth corner
+        #
         # ])
+
+        model_points = np.array([
+            (0.0, 0.0, 0.0),  # Nose tip
+            (0, -63.6, -12.5),  # Chin
+            (-43.3, 32.7, -26),  # Left eye, left corner
+            (43.3, 32.7, -26),  # Right eye, right corner
+            (-28.9, -28.9, -24.1),  # Left Mouth corner
+            (28.9, -28.9, -24.1)  # Right mouth corner
+        ])
 
         # *Центр левого глаза: (-135, 170, -135)
         # *Центр правого глаза: (135, 170, -135
@@ -642,16 +676,16 @@ class GazeTracking(object):
                 self.landmarks[self.RIGHT_EYE_POINTS])
             x_right_circle = int(x_right_circle + self.face[0][0])
             y_right_circle = int(y_right_circle + self.face[0][1])
-            (right_end_point2D, jacobian) = cv2.projectPoints(np.array([(135.0, 170.0, -200.0)]), rotation_vector,
+            (right_end_point2D, jacobian) = cv2.projectPoints(np.array([(135.0, 170.0, 400.0)]), rotation_vector,
                                                               translation_vector,
                                                               camera_matrix, dist_coeffs)
             p1 = (x_right_circle, y_right_circle)
             p2 = (int(right_end_point2D[0][0][0]), int(right_end_point2D[0][0][1]))
-            cv2.line(frame, p1, p2, (255, 255, 255), 3)
+            cv2.line(frame, p1, p2, (255, 255, 255), 2)
 
-        rear_size = 300
+        rear_size = 50
         rear_depth = 0
-        front_size = 500
+        front_size = 100
         front_depth = 400
         point_2d = self.get_2d_points(frame, rotation_vector, translation_vector, camera_matrix, [rear_size, rear_depth, front_size, front_depth])
         self.point_2d = point_2d
@@ -705,35 +739,21 @@ class GazeTracking(object):
         """Returns the main frame with pupils highlighted"""
         frame = self.frame.copy()
         epsilon = 0
+        cv2.putText(frame, f'num faces: {self.num_faces}', (0, 50), cv2.FONT_HERSHEY_SIMPLEX, 2, (0, 0, 0), 3)
+        cv2.putText(frame, f'num faces: {self.num_faces}', (0, 50), cv2.FONT_HERSHEY_SIMPLEX, 2, (255, 255, 255), 1)
+        if self.num_faces > 0 and self.landmarks is None:
+            cv2.putText(frame, f'CANNOT DETECT LANDMARKS', (0, 150), cv2.FONT_HERSHEY_SIMPLEX, 2, (0, 0, 0), 3)
+            cv2.putText(frame, f'CANNOT DETECT LANDMARKS', (0, 150), cv2.FONT_HERSHEY_SIMPLEX, 2, (0, 0, 255), 1)
+
         if self.pupils_located:
             color = (0, 255, 0)
             x_left, y_left, x_left_center, y_left_center = self.pupil_left_coords()
-            # x_left += self.face[0][0]
-            # y_left += self.face[0][1]
-            # x_left_center += self.face[0][0]
-            # y_left_center += self.face[0][1]
-            l_max_x = (max(self.landmarks[self.LEFT_EYE_POINTS], key=lambda item: item[0]))[0]+ self.face[0][0]
-            l_min_x = (min(self.landmarks[self.LEFT_EYE_POINTS], key=lambda item: item[0]))[0] + self.face[0][0]
-            l_max_y = (max(self.landmarks[self.LEFT_EYE_POINTS], key=lambda item: item[1]))[1]+ self.face[0][1]
-            l_min_y = (min(self.landmarks[self.LEFT_EYE_POINTS], key=lambda item: item[1]))[1] + self.face[0][1]
-            l_width = l_max_x - l_min_x
-            l_height = l_max_y - l_min_y
-            self.left_eye = (x_left, y_left)
-
             x_right, y_right, x_right_center, y_right_center = self.pupil_right_coords()
-            # x_right += self.face[0][0]
-            # y_right += self.face[0][1]
-            # x_right_center += self.face[0][0]
-            # y_right_center += self.face[0][1]
-            r_max_x = (max(self.landmarks[self.RIGHT_EYE_POINTS], key=lambda item: item[0]))[0] + self.face[0][0]
-            r_min_x = (min(self.landmarks[self.RIGHT_EYE_POINTS], key=lambda item: item[0]))[0] + self.face[0][0]
-            r_max_y = (max(self.landmarks[self.RIGHT_EYE_POINTS], key=lambda item: item[1]))[1] + self.face[0][1]
-            r_min_y = (min(self.landmarks[self.RIGHT_EYE_POINTS], key=lambda item: item[1]))[1] + self.face[0][1]
-            r_width = r_max_x - r_min_x
-            r_height = r_max_y - r_min_y
+
 
             # estimation
-            self.__estimate(frame, False)
+            if self.landmarks is not None:
+                self.__estimate(frame, False)
 
             # ptrs
             if settings.SHOW_PUPIL_POINTERS:
@@ -750,17 +770,20 @@ class GazeTracking(object):
             # frame = self.frame.copy()
             self.__estimate_distance(frame)
 
-            if settings.SHOW_LEFT_RAY:
+            if settings.SHOW_LEFT_RAY and self.landmarks is not None:
                 self.__3d_to_2d(frame, 0)
 
-            if settings.SHOW_RIGHT_RAY:
+            if settings.SHOW_RIGHT_RAY and self.landmarks is not None:
                 self.__3d_to_2d(frame, 1)
 
-            if settings.SHOW_MEAN_RAY:
+            if settings.SHOW_MEAN_RAY and self.landmarks is not None:
                 # self.vector = (
                 self.__3d_to_2d(frame, 2)
 
             self.__screen_point(frame)
             # cv2.circle(frame, (frame.shape[1] //2, frame.shape[0] // 2), 3, (255, 255, 255), -1)
             # cv2.rectangle(frame, (100, 100), (frame.shape[1] - 100, frame.shape[0] - 100), (255, 0,0), 1)
+
+
+
         return frame
