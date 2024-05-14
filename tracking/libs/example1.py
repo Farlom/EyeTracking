@@ -13,18 +13,18 @@ import settings
 from koeffs import BarrelDeformer
 
 # gaze = GazeTracking()
-# webcam = cv2.VideoCapture('../videos/output_60cm.avi')
+# webcam = cv2.VideoCapture('60cm/510_.png')
+webcam = cv2.VideoCapture('../videos/output_120cm.avi')
+# webcam = cv2.VideoCapture('../videos/crop.mov')
 # webcam = cv2.VideoCapture(1)
 # cap = cv2.VideoCapture("rtsp://admin:vide0-II@172.20.6.234:554")
-
-webcam = cv2.VideoCapture('../photos/550_center.png')
 
 prev_frame_time = 0
 new_frame_time = 0
 arr = []
 frame_width = int(webcam.get(3))
 frame_height = int(webcam.get(4))
-out = cv2.VideoWriter('outpy.avi', cv2.VideoWriter_fourcc('M','J','P','G'), 10, (frame_width,frame_height))
+out = cv2.VideoWriter('outpy_1005.avi', cv2.VideoWriter_fourcc('M','J','P','G'), 10, (frame_width,frame_height))
 counter = 0
 calibration_counter = 0
 x1 = None
@@ -32,18 +32,22 @@ x2 = None
 y1 = None
 y2 = None
 angle = None
+
+newcameramtx = np.load('newcameramtx.npy')
+mtx = np.load('mtx.npy')
+dist = np.load('dist.npy')
+roi = np.load('roi.npy')
+
 with mp.solutions.face_detection.FaceDetection(model_selection=1) as detector:
     gaze = GazeTracking(detector, (frame_width, frame_height))
 
     while True:
         # We get a new frame from the webcam
         ret, frame = webcam.read()
+        frame = cv2.undistort(frame, mtx, dist, None, newcameramtx)
+        x, y, w, h = roi
+        frame = frame[y:y + h, x:x + w]
         # frame = cv2.flip(frame, 1)
-        # frame = cv2.flip(frame, 1)
-        if settings.FIX_BARREL_DISTORTION:
-            frame = Image.fromarray(frame)
-            frame = ImageOps.deform(frame, BarrelDeformer(-0.21, 0, frame_width, frame_height))
-            frame = np.asarray(frame)
         if not ret:
             break
 
@@ -62,8 +66,8 @@ with mp.solutions.face_detection.FaceDetection(model_selection=1) as detector:
         elif gaze.is_center():
             text = "center"
 
-        if counter % 10 == 0:
-            cv2.imwrite(f'./60cm/{counter}_{text}.png', frame_copy)
+        # if counter % 10 == 0:
+        #     cv2.imwrite(f'./150cm_cal/{counter}_{text}.png', frame_copy)
         # cv2.putText(frame, text, (90, 60), cv2.FONT_HERSHEY_DUPLEX, 1.6, (147, 58, 31), 2)
 
         left_pupil = gaze.pupil_left_coords()
@@ -98,10 +102,10 @@ with mp.solutions.face_detection.FaceDetection(model_selection=1) as detector:
             else:
                 print(arr)
 
-        # out.write(frame)
+        out.write(frame)
         counter += 1
         cv2.imshow("Demo", frame)
-        cv2.imwrite('60cm_2.png', frame)
+        # cv2.imwrite('60cm_2.png', frame)
         if cv2.waitKey(1) == 27:
             break
 

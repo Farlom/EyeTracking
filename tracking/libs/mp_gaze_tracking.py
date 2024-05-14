@@ -1,5 +1,7 @@
 from __future__ import division
 import os
+import pathlib
+
 import cv2
 import numpy as np
 import mediapipe as mp
@@ -8,6 +10,10 @@ from calibration import Calibration
 import settings
 import math
 from statistics import mean
+
+from l2cs import Pipeline, render
+import pathlib
+import torch
 
 
 class GazeTracking(object):
@@ -51,6 +57,13 @@ class GazeTracking(object):
         self.__face_detector = mp.solutions.face_detection.FaceDetection()
         # _predictor is used to get facial landmarks of a given face
         self.__face_landmarker = mp.solutions.face_mesh.FaceMesh(refine_landmarks=False)
+
+        self.CWD = pathlib.Path.cwd()
+        self.gaze_pipeline = Pipeline(
+            weights= self.CWD / 'models' / 'L2CSNet_gaze360.pkl',
+            arch='ResNet50',
+            device=torch.device('cpu')  # or 'gpu'
+        )
 
     @property
     def pupils_located(self):
@@ -195,6 +208,9 @@ class GazeTracking(object):
             y = self.eye_right.origin[1] + self.eye_right.pupil.y + self.face[0][1]
             cx = self.eye_right.origin[0] + round(self.eye_right.center[0]) + self.face[0][0]
             cy = self.eye_right.origin[1] + round(self.eye_right.center[1]) + self.face[0][1]
+
+            self.right_pupil = (x, y)
+
             return x, y, cx, cy
 
     def horizontal_ratio(self):
@@ -546,7 +562,7 @@ class GazeTracking(object):
                 p1 = (int(pupil[0]), int(pupil[1]))
                 p2 = (int(gaze[0]), int(gaze[1]))
                 # print(S_right)
-                cv2.circle(img, (round(eye_pupil2D[0][0][0]), round(eye_pupil2D[0][0][1])), 3, (255, 255, 255), 2)
+                # cv2.circle(img, (round(eye_pupil2D[0][0][0]), round(eye_pupil2D[0][0][1])), 3, (255, 255, 255), 2)
                 cv2.line(img, p1, p2, (0, 0, 255), 2)
 
                 return (p1, p2)
@@ -565,7 +581,7 @@ class GazeTracking(object):
                 pupil_world_cord = transformation @ np.array([[pupil[0], pupil[1], 0, 1]]).T
 
                 # 3D gaze point (10 is arbitrary value denoting gaze distance)
-                S = EYE_BALL_CENTER_MEAN + (pupil_world_cord - EYE_BALL_CENTER_MEAN) * int(10)
+                S = EYE_BALL_CENTER_MEAN + (pupil_world_cord - EYE_BALL_CENTER_MEAN) * int(self.distance // 10)
                 # print(S)
 
                 # Project a 3D gaze direction onto the image plane.
@@ -606,24 +622,24 @@ class GazeTracking(object):
             RIGHT_MOUSE_CORNER
         ], dtype='double')
 
-        # model_points = np.array([
-        #     (0.0, 0.0, 0.0),  # Nose tip
-        #     (0.0, -330.0, -65.0),  # Chin
-        #     (-225.0, 170.0, -135.0),  # Left eye left corner
-        #     (225.0, 170.0, -135.0),  # Right eye right corner
-        #     (-150.0, -150.0, -125.0),  # Left Mouth corner
-        #     (150.0, -150.0, -125.0)  # Right mouth corner
-        #
-        # ])
-
         model_points = np.array([
             (0.0, 0.0, 0.0),  # Nose tip
-            (0, -63.6, -12.5),  # Chin
-            (-43.3, 32.7, -26),  # Left eye, left corner
-            (43.3, 32.7, -26),  # Right eye, right corner
-            (-28.9, -28.9, -24.1),  # Left Mouth corner
-            (28.9, -28.9, -24.1)  # Right mouth corner
+            (0.0, -330.0, -65.0),  # Chin
+            (-225.0, 170.0, -135.0),  # Left eye left corner
+            (225.0, 170.0, -135.0),  # Right eye right corner
+            (-150.0, -150.0, -125.0),  # Left Mouth corner
+            (150.0, -150.0, -125.0)  # Right mouth corner
+
         ])
+
+        # model_points = np.array([
+        #     (0.0, 0.0, 0.0),  # Nose tip
+        #     (0, -63.6, -12.5),  # Chin
+        #     (-43.3, 32.7, -26),  # Left eye, left corner
+        #     (43.3, 32.7, -26),  # Right eye, right corner
+        #     (-28.9, -28.9, -24.1),  # Left Mouth corner
+        #     (28.9, -28.9, -24.1)  # Right mouth corner
+        # ])
 
         # *Центр левого глаза: (-135, 170, -135)
         # *Центр правого глаза: (135, 170, -135
@@ -669,24 +685,35 @@ class GazeTracking(object):
 
             p1 = (x_left_circle, y_left_circle)
             p2 = (int(left_end_point2D[0][0][0]), int(left_end_point2D[0][0][1]))
-            cv2.line(frame, p1, p2, (255, 0, 0), 2)
+            cv2.line(frame, self.left_pupil, p2, (255, 0, 0), 2)
 
         if settings.SHOW_RIGHT_GAZE_RAY:
-            (x_right_circle, y_right_circle), rad_right_circle = cv2.minEnclosingCircle(
-                self.landmarks[self.RIGHT_EYE_POINTS])
-            x_right_circle = int(x_right_circle + self.face[0][0])
-            y_right_circle = int(y_right_circle + self.face[0][1])
+            # (x_right_circle, y_right_circle), rad_right_circle = cv2.minEnclosingCircle(
+            #     self.landmarks[self.RIGHT_EYE_POINTS])
+            # x_right_circle = int(x_right_circle + self.face[0][0])
+            # y_right_circle = int(y_right_circle + self.face[0][1])
             (right_end_point2D, jacobian) = cv2.projectPoints(np.array([(135.0, 170.0, 400.0)]), rotation_vector,
                                                               translation_vector,
                                                               camera_matrix, dist_coeffs)
-            p1 = (x_right_circle, y_right_circle)
+            # p1 = (x_right_circle, y_right_circle)
             p2 = (int(right_end_point2D[0][0][0]), int(right_end_point2D[0][0][1]))
-            cv2.line(frame, p1, p2, (255, 255, 255), 2)
+            cv2.line(frame, self.right_pupil, p2, (255, 255, 255), 2)
 
-        rear_size = 50
+        if settings.SHOW_MEAN_GAZE_RAY:
+            x_right, y_right = self.right_pupil
+            x_left, y_left = self.left_pupil
+
+            pupil = (round(mean([x_right, x_left])), round(mean([y_right, y_left])))
+            (right_end_point2D, jacobian) = cv2.projectPoints(np.array([(0, 170.0, 600.0)]), rotation_vector,
+                                                              translation_vector,
+                                                              camera_matrix, dist_coeffs)
+            # ry = y cos α + x sin α
+            p2 = (int(right_end_point2D[0][0][0]), int(right_end_point2D[0][0][1]))
+            cv2.line(frame, pupil, p2, (255, 255, 255), 2)
+        rear_size = 300
         rear_depth = 0
-        front_size = 100
-        front_depth = 400
+        front_size = 500
+        front_depth = 500
         point_2d = self.get_2d_points(frame, rotation_vector, translation_vector, camera_matrix, [rear_size, rear_depth, front_size, front_depth])
         self.point_2d = point_2d
         #https://github.com/jerryhouuu/Face-Yaw-Roll-Pitch-from-Pose-Estimation-using-OpenCV
@@ -695,6 +722,7 @@ class GazeTracking(object):
         proj_matrix = np.hstack((rvec_matrix, translation_vector))
         eulerAngles = cv2.decomposeProjectionMatrix(proj_matrix)[6]
         pitch, yaw, roll = [math.radians(_) for _ in eulerAngles]
+        print(math.sin(pitch))
         pitch = int(math.degrees(math.asin(math.sin(pitch))))
         self.__pitch = pitch
 
@@ -733,7 +761,15 @@ class GazeTracking(object):
             cv2.line(frame, point_2d[8], point_2d[9], (255, 255, 255), 3)
             cv2.circle(frame, point_2d[9], 5, (0, 0, 0), -1)
 
-
+    def l2cs(self, frame, face_frame):
+        result = self.gaze_pipeline.step(face_frame)
+        print(self.face)
+        frame = render(frame[
+                       self.face[0][1]:self.face[0][1]+self.face[1][1],
+                       self.face[0][0]:self.face[0][0] + self.face[1][0]
+                       ], result)
+        # cv2.imshow('face', face_frame)
+        return result
 
     def annotated_frame(self):
         """Returns the main frame with pupils highlighted"""
@@ -765,7 +801,7 @@ class GazeTracking(object):
 
 
             # face rect
-            cv2.rectangle(frame, (self.face[0][0], self.face[0][1]), (self.face[1][0], self.face[1][1]), color)
+            # cv2.rectangle(frame, (self.face[0][0], self.face[0][1]), (self.face[1][0], self.face[1][1]), color)
 
             # frame = self.frame.copy()
             self.__estimate_distance(frame)
@@ -784,6 +820,78 @@ class GazeTracking(object):
             # cv2.circle(frame, (frame.shape[1] //2, frame.shape[0] // 2), 3, (255, 255, 255), -1)
             # cv2.rectangle(frame, (100, 100), (frame.shape[1] - 100, frame.shape[0] - 100), (255, 0,0), 1)
 
+            # l2cs
+            try:
+                result = self.l2cs(frame, self.face_frame)
+
+                if True:
+                    DISTANCE_TO_OBJECT = self.distance * 10 * 1.5 # mm
+                    HEIGHT_OF_HUMAN_FACE = 250  # mm
+                    CAMERA_ANGLE = math.sin(20 * np.pi / 180)
+                    print(CAMERA_ANGLE)
+                    face_pitch = math.sin(self.__pitch * np.pi / 180)
+                    face_yaw = math.sin(self.__yaw * np.pi / 180)
+
+                    gaze_pitch = result.yaw[0]
+                    gaze_yaw = result.pitch[0]
+
+                    pitch = CAMERA_ANGLE + face_pitch + gaze_pitch
+                    yaw = face_yaw + gaze_yaw
+                    # image_height, image_width = frame.shape[:2]
+
+                    length_per_pixel = HEIGHT_OF_HUMAN_FACE / (result.bboxes[0][3] - result.bboxes[0][1])
+
+                    dx = -DISTANCE_TO_OBJECT * np.tan(result.pitch) / length_per_pixel
+                    # dx = -DISTANCE_TO_OBJECT * np.tan(yaw) / length_per_pixel
+
+                    # 100000000 is used to denote out of bounds
+                    dx = dx if not np.isnan(dx) else 100000000
+
+                    dy = -DISTANCE_TO_OBJECT * np.arccos(result.pitch) * np.tan(result.yaw) / length_per_pixel
+                    # dy = -DISTANCE_TO_OBJECT * np.arccos(yaw) * np.tan(pitch) / length_per_pixel
+
+                    dy = dy if not np.isnan(dy) else 100000000
+                    gaze_point = int(self.width / 2 + dx), int(self.height / 2 + dy)
+
+                    cv2.circle(frame, gaze_point, 25, (0, 0, 255), -1)
+
+                    # test
+                    dx = -self.distance * 10 * np.tan(result.pitch[0] + face_yaw) / length_per_pixel
+                    # 100000000 is used to denote out of bounds
+                    dx = dx if not np.isnan(dx) else 100000000
+                    dy = -self.distance * 10 * np.arccos(result.pitch[0] + face_yaw) * np.tan(result.yaw[0] + math.radians(15)) / length_per_pixel
+                    dy = dy if not np.isnan(dy) else 100000000
+                    print(np.tan(result.yaw[0] * 2))
+                    gaze_point = int(self.width / 2 + dx), int(self.height / 2 + dy)
+
+                    cv2.circle(frame, gaze_point, 25, (0,255, 255), -1)
+
+                if 1 == 0:
+                    cv2.line(frame, (0, frame.shape[0] // 2), (round(self.distance * 38), frame.shape[0] // 2), (255, 0, 0),
+                             3)
+                    # print(self.__pitch, round(result.yaw[0] / np.pi * 180))
+                    pitch = self.__pitch - round(result.yaw[0] / np.pi * 180)
+                    face_pitch = math.sin(self.__pitch * np.pi / 180)
+                    gaze_pitch = result.yaw[0]
+                    tmp = round(self.distance * 38 * (face_pitch + gaze_pitch))
+                    print(tmp)
+                    # self.face_frame = render(self.face_frame, result)
+                    face_yaw = math.sin(self.__yaw * np.pi / 180)
+                    gaze_yaw = result.pitch[0]
+
+                    tmp_yaw = round(self.distance * 38 * (face_yaw + gaze_yaw))
+                    # print(result)
+
+                    tmp_face = round(self.distance * 30 * face_pitch)
+                    cv2.circle(frame, (frame.shape[1] // 2 - tmp_yaw, frame.shape[0] // 2), 15, (255, 255, 0), -1)
+
+                    cv2.circle(frame, (frame.shape[1] // 2, -tmp), 15, (0, 255, 0), -1)
+                    cv2.circle(frame, (frame.shape[1] // 2, frame.shape[0] // 2 - tmp_face), 15, (0, 255, 255), -1)
+                    cv2.putText(frame, f'yaw {gaze_yaw:.2f}',(50, 200),cv2.FONT_HERSHEY_PLAIN, 3, (255, 0, 0), 3)
+                    cv2.putText(frame, f'pitch {gaze_pitch:.2f}',(50, 300),cv2.FONT_HERSHEY_PLAIN, 3, (255, 0, 0), 3)
+
+            except:
+                ...
 
 
         return frame

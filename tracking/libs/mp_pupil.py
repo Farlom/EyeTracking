@@ -28,18 +28,21 @@ class Pupil(object):
             A frame with a single element representing the iris
         """
         # cv2.imwrite('fe.png', eye_frame)
-
+        # print(eye_frame.shape)
+        # cv2.imshow('eyeframe', eye_frame)
         kernel = np.ones((3, 3), np.uint8)
-        new_frame = cv2.bilateralFilter(eye_frame, 10, 15, 15)
-        # cv2.imwrite('eye_bilateral.png', new_frame)
 
-        new_frame = cv2.erode(new_frame, kernel, iterations=3)
-        # cv2.imwrite('eye_erode.png', new_frame)
+        if eye_frame.shape[0] > 0 and eye_frame.shape[1] > 0:
+            new_frame = cv2.bilateralFilter(eye_frame, 10, 15, 15)
+            # cv2.imwrite('eye_bilateral.png', new_frame)
 
-        new_frame = cv2.threshold(new_frame, threshold, 255, cv2.THRESH_BINARY)[1]
-        # cv2.imwrite('eye_threshold.png', new_frame)
-        # print(threshold)
-        return new_frame
+            new_frame = cv2.erode(new_frame, kernel, iterations=3)
+            # cv2.imwrite('eye_erode.png', new_frame)
+
+            new_frame = cv2.threshold(new_frame, threshold, 255, cv2.THRESH_BINARY)[1]
+            # cv2.imwrite('eye_threshold.png', new_frame)
+            # print(threshold)
+            return new_frame
 
     def detect_iris(self, eye_frame):
         """Detects the iris and estimates the position of the iris by

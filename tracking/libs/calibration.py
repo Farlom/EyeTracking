@@ -64,6 +64,7 @@ class Calibration(object):
             # cv2.imwrite(f'iris_frame_{threshold}_thresh.png', iris_frame)
 
             # print(threshold)
+
             trials[threshold] = Calibration.iris_size(iris_frame)
 
         best_threshold, iris_size = min(trials.items(), key=(lambda p: abs(p[1] - average_iris_size)))
