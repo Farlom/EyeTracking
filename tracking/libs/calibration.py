@@ -1,6 +1,6 @@
 from __future__ import division
 import cv2
-from mp_pupil import Pupil
+from math_pupil import Pupil
 
 
 class Calibration(object):

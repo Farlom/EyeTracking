@@ -1,7 +1,9 @@
 import math
 import numpy as np
 import cv2
-from mp_pupil import Pupil
+from math_pupil import Pupil
+from mp_pupil import MP_Pupil
+import settings
 
 
 class Eye(object):
@@ -13,6 +15,9 @@ class Eye(object):
     LEFT_EYE_POINTS = [33, 7, 163, 144, 145, 153, 154, 155, 133, 173, 157, 158, 159, 160, 161, 246]
     RIGHT_EYE_POINTS = [362, 382, 381, 380, 374, 373, 390, 249, 263, 466, 388, 387, 386, 385, 384, 398]
 
+    # mediapipe pts
+    LEFT_EYE_IRIS = [469, 470, 471, 472]
+    RIGHT_EYE_IRIS = [474, 475, 476, 477]
     def __init__(self, original_frame, landmarks, side, calibration):
         self.frame = None
         self.origin = None
@@ -115,18 +120,48 @@ class Eye(object):
             side: Indicates whether it's the left eye (0) or the right eye (1)
             calibration (calibration.Calibration): Manages the binarization threshold value
         """
-        if side == 0:
-            points = self.LEFT_EYE_POINTS
-        elif side == 1:
-            points = self.RIGHT_EYE_POINTS
+        if settings.MEDIAPIPE_EYE_DETECTION:
+            if side == 0:
+                # points = self.LEFT_EYE_POINTS
+                points = self.LEFT_EYE_IRIS
+            elif side == 1:
+                # points = self.RIGHT_EYE_POINTS
+                points = self.RIGHT_EYE_IRIS
+            else:
+                return
+            # print(self.landmark_points)
+            self._isolate(original_frame, landmarks, points)
+
+            self.pupil = MP_Pupil(landmarks, points)
+            self.pupil.x -= self.origin[0]
+            self.pupil.y -= self.origin[1]
+
+            print(self.pupil)
+
+
+            # (cX_r, cY_r), rad_r = cv2.minEnclosingCircle(mesh_points[RIGHT_IRIS])
+            # self.blinking = self._blinking_ratio(landmarks, points)
+            # self._isolate(original_frame, landmarks, points)
+
+            # if not calibration.is_complete():
+            #     calibration.evaluate(self.frame, side)
+            #
+            # threshold = calibration.threshold(side)
+            # self.pupil = MP_Pupil(self.frame, points)
+
         else:
-            return
+            if side == 0:
+                points = self.LEFT_EYE_POINTS
+            elif side == 1:
+                points = self.RIGHT_EYE_POINTS
+            else:
+                return
 
-        self.blinking = self._blinking_ratio(landmarks, points)
-        self._isolate(original_frame, landmarks, points)
+            self.blinking = self._blinking_ratio(landmarks, points)
+            self._isolate(original_frame, landmarks, points)
 
-        if not calibration.is_complete():
-            calibration.evaluate(self.frame, side)
+            if not calibration.is_complete():
+                calibration.evaluate(self.frame, side)
 
-        threshold = calibration.threshold(side)
-        self.pupil = Pupil(self.frame, threshold)
+            threshold = calibration.threshold(side)
+            self.pupil = Pupil(self.frame, threshold)
