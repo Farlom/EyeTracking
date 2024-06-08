@@ -1,6 +1,4 @@
 from __future__ import division
-import os
-import pathlib
 
 import cv2
 import numpy as np
@@ -58,12 +56,20 @@ class GazeTracking(object):
         # _predictor is used to get facial landmarks of a given face
         self.__face_landmarker = mp.solutions.face_mesh.FaceMesh(refine_landmarks=False)
 
+        self.points = []
         self.CWD = pathlib.Path.cwd()
         self.gaze_pipeline = Pipeline(
             weights= self.CWD / 'models' / 'L2CSNet_gaze360.pkl',
             arch='ResNet50',
             device=torch.device('cpu')  # or 'gpu'
         )
+
+        self.tn = 0
+        self.tp = 0
+        self.fn = 0
+        self.fp = 0
+        self.row = 0
+        self.col = 0
 
     @property
     def pupils_located(self):
@@ -83,12 +89,14 @@ class GazeTracking(object):
 
         if result.detections:
             self.num_faces = len(result.detections)
-            # print(num_faces)
+            # print(result.detections)
             if self.num_faces == 1:
                 result_faces = result.detections[0].location_data.relative_bounding_box
 
-                epsilon = 10
-                bbox_delta = 0 # 50
+                # epsilon = 10
+                epsilon = settings.BBOX_EPSILON
+                # bbox_delta = 50
+                bbox_delta = settings.BBOX_DELTA
                 x1 = round(result_faces.xmin * self.width) - bbox_delta
                 x1 = x1 if x1 >= 0 else 0
 
@@ -127,7 +135,7 @@ class GazeTracking(object):
                 for i in range(self.num_faces):
                     result_faces = result.detections[i].location_data.relative_bounding_box
 
-                    epsilon = 10
+                    epsilon = settings.BBOX_EPSILON
 
                     x1 = round(result_faces.xmin * self.width)
                     y1 = round(result_faces.ymin * self.height)
@@ -157,13 +165,18 @@ class GazeTracking(object):
             with mp.solutions.face_mesh.FaceMesh(
                 static_image_mode=False,
                 max_num_faces=1,
-                refine_landmarks=settings.MEDIAPIPE_EYE_DETECTION,
+                refine_landmarks=settings.MEDIAPIPE_PUPIL_DETECTION,
                 min_detection_confidence=0.5,
                 min_tracking_confidence=0.5
             ) as mesh:
+
+                # print(mesh.process(self.face_frame))
+                # input()
                 res_landmarks = mesh.process(self.face_frame).multi_face_landmarks
+                # print(res_landmarks)
                 if res_landmarks:
                     face_height, face_width = self.face_frame.shape[:2]
+
 
                     landmarks = res_landmarks[0].landmark
                     landmarks = np.array(
@@ -278,73 +291,6 @@ class GazeTracking(object):
 
 
         return point_2d
-
-    def __sphere(self, img):
-        x_left, y_left, x_left_center, y_left_center = self.pupil_left_coords()
-        x_left += self.face[0][0]
-        y_left += self.face[0][1]
-
-        x_right, y_right, x_right_center, y_right_center = self.pupil_right_coords()
-        x_right += self.face[0][0]
-        y_right += self.face[0][1]
-
-        color = (0, 255, 0)
-
-        (x_left_circle, y_left_circle), rad_left_circle = cv2.minEnclosingCircle(
-            self.landmarks[self.LEFT_EYE_POINTS])
-        x_left_circle = int(x_left_circle + self.face[0][0])
-        y_left_circle = int(y_left_circle + self.face[0][1])
-
-        (x_right_circle, y_right_circle), rad_right_circle = cv2.minEnclosingCircle(
-            self.landmarks[self.RIGHT_EYE_POINTS])
-        x_right_circle = int(x_right_circle + self.face[0][0])
-        y_right_circle = int(y_right_circle + self.face[0][1])
-
-        # cv2.circle(img, (x_left_circle, y_left_circle), int(rad_left_circle), (255, 255, 255), 2)
-        cv2.line(img, (x_left_circle - 5, y_left_circle), (x_left_circle + 5, y_left_circle), (255, 255, 255), 1)
-        cv2.line(img, (x_left_circle, y_left_circle), (x_left_circle, y_left_circle + 5), (255, 255, 255), 1)
-
-        # cv2.circle(img, (x_right_circle, y_right_circle), int(rad_right_circle), (255, 255, 255), 2)
-        cv2.line(img, (x_right_circle - 5, y_right_circle), (x_right_circle + 5, y_right_circle), (255, 255, 255), 1)
-        cv2.line(img, (x_right_circle, y_right_circle), (x_right_circle, y_right_circle + 5), (255, 255, 255), 1)
-
-        # cv2.line(img,
-        #          (x_left_circle, y_left_circle),
-        #          (
-        #              int(x_left_circle - 15),
-        #              int(y_left_circle - 15 * math.sin(self.__pitch))
-        #          ), (255, 0, 255), 3)
-
-        # x_left_circle = int(x_left_circle - (rad_left_circle // 4) * math.cos(self.__yaw))
-        # y_left_circle = int(y_left_circle - (rad_left_circle // 4) * math.sin(self.__pitch))
-        # cv2.circle(img, (x_left_circle, y_left_circle), 1, color, 2)
-        if x_left_circle != x_left and y_left_circle != y_left:
-            eye_left_k = (y_left_circle - y_left) / (x_left_circle - x_left)
-            eye_left_b = round(y_left - (eye_left_k * x_left_circle))
-        else:
-            eye_left_b = 0
-            eye_left_k = 0
-
-        if x_right_circle != x_right and y_right_circle != y_right:
-            eye_right_k = (y_right_circle - y_right) / (x_right_circle - x_right)
-            eye_right_b = round(y_right - (eye_right_k * x_right_circle))
-        else:
-            eye_right_b = 0
-            eye_right_k = 0
-
-        if settings.SHOW_LEFT_GAZE_RAY:
-            if x_left_circle > x_left:
-                cv2.line(img, (x_left_circle, y_left_circle), (0, eye_left_b), color)
-            else:
-                cv2.line(img, (x_left_circle, y_left_circle),
-                         (img.shape[1], round(img.shape[1] * eye_left_k + eye_left_b)), color)
-
-        if settings.SHOW_RIGHT_GAZE_RAY:
-            if x_right_circle > x_right:
-                cv2.line(img, (x_right_circle, y_right_circle), (0, eye_right_b), color)
-            else:
-                cv2.line(img, (x_right_circle, y_right_circle),
-                         (img.shape[1], round(img.shape[1] * eye_right_k + eye_right_b)), color)
 
     def __3d_to_2d(self, img, side):
         NOSE_TIP = (self.face[0][0] + self.landmarks[4][0], self.face[0][1] + self.landmarks[4][1])
@@ -648,7 +594,7 @@ class GazeTracking(object):
         proj_matrix = np.hstack((rvec_matrix, translation_vector))
         eulerAngles = cv2.decomposeProjectionMatrix(proj_matrix)[6]
         pitch, yaw, roll = [math.radians(_) for _ in eulerAngles]
-        print(math.sin(pitch))
+        # print(math.sin(pitch))
         pitch = int(math.degrees(math.asin(math.sin(pitch))))
         self.__pitch = pitch
 
@@ -657,15 +603,15 @@ class GazeTracking(object):
 
         yaw = int(math.degrees(math.asin(math.sin(yaw))))
         self.__yaw = yaw
+        if settings.SHOW_TEXT:
+            cv2.putText(frame, f'pitch: {pitch}', (self.face[1][0], self.face[0][1]), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 0), 3)
+            cv2.putText(frame, f'pitch: {pitch}', (self.face[1][0], self.face[0][1]), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 1)
 
-        cv2.putText(frame, f'pitch: {pitch}', (self.face[1][0], self.face[0][1]), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 0), 3)
-        cv2.putText(frame, f'pitch: {pitch}', (self.face[1][0], self.face[0][1]), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 1)
+            cv2.putText(frame, f'roll: {roll}', (self.face[1][0], self.face[0][1] + 50), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 0), 3)
+            cv2.putText(frame, f'roll: {roll}', (self.face[1][0], self.face[0][1] + 50), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 1)
 
-        cv2.putText(frame, f'roll: {roll}', (self.face[1][0], self.face[0][1] + 50), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 0), 3)
-        cv2.putText(frame, f'roll: {roll}', (self.face[1][0], self.face[0][1] + 50), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 1)
-
-        cv2.putText(frame, f'yaw: {yaw}', (self.face[1][0], self.face[0][1] + 100), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 0), 3)
-        cv2.putText(frame, f'yaw: {yaw}', (self.face[1][0], self.face[0][1] + 100), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 1)
+            cv2.putText(frame, f'yaw: {yaw}', (self.face[1][0], self.face[0][1] + 100), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 0), 3)
+            cv2.putText(frame, f'yaw: {yaw}', (self.face[1][0], self.face[0][1] + 100), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 1)
 
         if settings.SHOW_FACE_RECTANGLE_3D:
             # inner
@@ -685,34 +631,80 @@ class GazeTracking(object):
             cv2.line(frame, point_2d[6], point_2d[7], (255, 255, 255), 3) # 7 право верх 8 право низ
             cv2.line(frame, point_2d[7], point_2d[8], (255, 255, 255), 3)
             cv2.line(frame, point_2d[8], point_2d[9], (255, 255, 255), 3)
-            cv2.circle(frame, point_2d[9], 5, (0, 0, 0), -1)
+            # cv2.circle(frame, point_2d[9], 5, (0, 0, 0), -1)
 
     def l2cs(self, frame, face_frame):
         result = self.gaze_pipeline.step(face_frame)
-        print(self.face)
+        print(result)
         frame = render(frame[
-                       self.face[0][1]:self.face[0][1]+self.face[1][1],
+                       self.face[0][1]:self.face[0][1] + self.face[1][1],
                        self.face[0][0]:self.face[0][0] + self.face[1][0]
                        ], result)
         # cv2.imshow('face', face_frame)
         return result
+    def l2cs_draw_face(self, frame, result):
+        x_min = result.bboxes[0][0]
+        x_max = result.bboxes[0][2]
+        y_min = result.bboxes[0][1]
+        y_max = result.bboxes[0][3]
 
+        face_width = x_max - x_min
+        face_height = y_max - y_min
+
+        cv2.rectangle(frame, (int(self.face[0][0] + x_min), int(self.face[0][1] + y_min)),
+                  (int(self.face[0][0] + x_max), int(self.face[0][1] + y_max)),
+                  (255, 255, 255), 1)
+
+    def l2cs_draw_gaze(self, frame, result):
+        x_min = result.bboxes[0][0]
+        x_max = result.bboxes[0][2]
+        y_min = result.bboxes[0][1]
+        y_max = result.bboxes[0][3]
+
+        face_width = x_max - x_min
+        face_height = y_max - y_min
+
+        arrow_length = self.width * 0.5
+        dx = -arrow_length * np.sin(result.pitch) * np.cos(result.yaw)
+        dy = -arrow_length * np.sin(result.yaw)
+        cv2.arrowedLine(
+            frame,
+            (int(self.face[0][0] + x_min + face_width / 2), int(self.face[0][1] + y_min + face_height / 2)),
+            (int(self.face[0][0] + x_min + dx + face_width / 2), int(self.face[0][1] + y_min + face_height / 2 + dy)),
+            (0, 0, 255),
+            2,
+            cv2.LINE_AA,
+            tipLength=0.18,
+        )
     def annotated_frame(self):
         """Returns the main frame with pupils highlighted"""
         frame = self.frame.copy()
         epsilon = 0
         cv2.putText(frame, f'num faces: {self.num_faces}', (1200, self.height - 50), cv2.FONT_HERSHEY_SIMPLEX, 2, (0, 0, 0), 7)
         cv2.putText(frame, f'num faces: {self.num_faces}', (1200, self.height - 50), cv2.FONT_HERSHEY_SIMPLEX, 2, (0, 165, 255), 2)
+
+        if settings.SHOW_SCREEN_GRID:
+            for i in range(settings.SCREEN_H - 1):
+                cv2.line(frame, (0, self.height // settings.SCREEN_H * (i + 1)),
+                         (self.width, self.height // settings.SCREEN_H * (i + 1)), (255, 255, 0), 1)
+            for i in range(settings.SCREEN_W - 1):
+                cv2.line(frame, (self.width // settings.SCREEN_W * (i + 1), 0),
+                         (self.width // settings.SCREEN_W * (i + 1), self.height), (255, 255, 0), 1)
+
+        # counter = 0
+        # if settings.EVALUATION:
         if self.num_faces > 0:
             if self.landmarks is None:
                 cv2.putText(frame, f'CANNOT DETECT LANDMARKS', (0, 150), cv2.FONT_HERSHEY_SIMPLEX, 2, (0, 0, 0), 7)
                 cv2.putText(frame, f'CANNOT DETECT LANDMARKS', (0, 150), cv2.FONT_HERSHEY_SIMPLEX, 2, (0, 0, 255), 2)
-            elif not self.pupils_located:
-
+                self.fn += 1
+            elif self.landmarks is not None and not self.pupils_located:
+                self.fn += 1
                 cv2.putText(frame, f'CANNOT DETECT PUPILS', (0, 150), cv2.FONT_HERSHEY_SIMPLEX, 2, (0, 0, 0), 7)
                 cv2.putText(frame, f'CANNOT DETECT PUPILS', (0, 150), cv2.FONT_HERSHEY_SIMPLEX, 2, (0, 0, 255), 2)
 
         if self.pupils_located:
+            # self.tp += 1
             color = (0, 255, 0)
             x_left, y_left, x_left_center, y_left_center = self.pupil_left_coords()
             x_right, y_right, x_right_center, y_right_center = self.pupil_right_coords()
@@ -749,7 +741,6 @@ class GazeTracking(object):
             #     # self.vector = (
             #     self.__3d_to_2d(frame, 2)
 
-            self.__screen_point(frame)
             # for landmark in self.landmarks:
             #     cv2.circle(frame, (self.face[0][0] + landmark[0], self.face[0][1] + landmark[1]), 1, (255, 255, 255), -1)
 
@@ -762,118 +753,182 @@ class GazeTracking(object):
             #             self.face[0][1] + self.landmarks[468][1]), 2, (0, 255, 255), -1)
             # cv2.circle(frame, (frame.shape[1] //2, frame.shape[0] // 2), 3, (255, 255, 255), -1)
             # cv2.rectangle(frame, (100, 100), (frame.shape[1] - 100, frame.shape[0] - 100), (255, 0,0), 1)
+            # print(self.face_frame is None)
+            # result = self.gaze_pipeline.step(self.face_frame)
 
             # l2cs
             try:
-                result = self.l2cs(frame, self.face_frame)
-
+                print(self.face_frame is None)
+                # result = self.l2cs(frame, self.face_frame)
+                result = self.gaze_pipeline.step(self.face_frame)
+                # print(result)
+                if settings.SHOW_L2CS_RECTANGLE:
+                    self.l2cs_draw_face(frame, result)
+                if settings.SHOW_GAZE_RAY:
+                    self.l2cs_draw_gaze(frame, result)
                 if True:
                     DISTANCE_TO_OBJECT = self.distance * 10 # * 1.5 # mm
-                    HEIGHT_OF_HUMAN_FACE = 250  # mm
-                    CAMERA_ANGLE = math.sin(20 * np.pi / 180)
+                    # HEIGHT_OF_HUMAN_FACE = 0.25 * self.distance * 10 # 250  # mm
+                    HEIGHT_OF_HUMAN_FACE = 250
+                    CAMERA_ANGLE = math.radians(self.distance / 10) if self.distance < 1140 else 0# 10
                     face_pitch = math.radians(self.__pitch)
                     face_yaw = math.radians(self.__yaw)
+                    length_per_pixel = HEIGHT_OF_HUMAN_FACE / (result.bboxes[0][3] - result.bboxes[0][1])
 
                     gaze_pitch = result.yaw[0]
-                    gaze_yaw = result.pitch[0]
+                    # gaze_pitch = result.yaw[0] / math.radians(10) * math.radians(30)
 
+                    gaze_yaw = result.pitch[0]
+                    # gaze_yaw = result.pitch[0] / math.radians(20) * math.radians(50)
+                    #
                     pitch = CAMERA_ANGLE + face_pitch + gaze_pitch
                     yaw = face_yaw + gaze_yaw
                     # image_height, image_width = frame.shape[:2]
 
-                    length_per_pixel = HEIGHT_OF_HUMAN_FACE / (result.bboxes[0][3] - result.bboxes[0][1])
-
-                    dx = -DISTANCE_TO_OBJECT * np.tan(result.pitch) / length_per_pixel
-                    # dx = -DISTANCE_TO_OBJECT * np.tan(yaw) / length_per_pixel
-
-                    # 100000000 is used to denote out of bounds
-                    dx = dx if not np.isnan(dx) else 100000000
-
+                    face_center = int(self.face[0][0] + (result.bboxes[0][2] - result.bboxes[0][0])), int(self.face[0][1] + (result.bboxes[0][3] - result.bboxes[0][1]))
+                    # print(result)
+                    arrow_length = self.width * 2
+                    dx = -self.distance * 10 * np.sin(result.pitch) #* np.cos(result.yaw)
+                    if gaze_pitch <= face_pitch:
+                        dy = -DISTANCE_TO_OBJECT * np.arccos(gaze_yaw) * np.tan(gaze_pitch) / length_per_pixel
+                    else:
+                        dy = -DISTANCE_TO_OBJECT * np.arccos(gaze_yaw) * np.tan(gaze_pitch - face_pitch) / length_per_pixel
                     dy = -DISTANCE_TO_OBJECT * np.arccos(result.pitch) * np.tan(result.yaw) / length_per_pixel
+                    dy = -DISTANCE_TO_OBJECT * np.tan(gaze_pitch + CAMERA_ANGLE) / length_per_pixel
+                    dy = -self.distance * 10 * np.sin(result.yaw)
+
+                    # dy = 0
                     # dy = -DISTANCE_TO_OBJECT * np.arccos(yaw) * np.tan(pitch) / length_per_pixel
 
                     dy = dy if not np.isnan(dy) else 100000000
-                    gaze_point = int(self.width / 2 + dx), int(self.height / 2 + dy)
+                    # dy = -self.distance * 10  * np.sin(result.yaw)
+                    # dy = -DISTANCE_TO_OBJECT * np.arccos(result.pitch) * np.tan(result.yaw) / length_per_pixel
 
-                    cv2.circle(frame, gaze_point, 25, (0, 0, 255), -1)
+                    # DADADADA
+                    cv2.circle(
+                        frame,
+                        (int(self.face[0][0] + result.bboxes[0][0] + (result.bboxes[0][2] - result.bboxes[0][0]) / 2 + dx),
+                         int(self.face[0][1] + result.bboxes[0][1] + (result.bboxes[0][3] - result.bboxes[0][1]) / 2 + dy)),
+                         # int(self.height / 2 + dy)),
+                        30,
+                        (0, 255, 255),
+                        -1,
+                    )
+
+                    # rect
+                    # cv2.rectangle(frame, (int(self.face[0][0] + result.bboxes[0][0]), int(self.face[0][1] + result.bboxes[0][1])),  (int( self.face[0][0] + result.bboxes[0][2]), int( self.face[0][1] + result.bboxes[0][3])), (255,255,255), 1)
+
+                    # if math.radians(-5) <= gaze_yaw <= math.radians(5):
+                    #     dx = -DISTANCE_TO_OBJECT * np.tan(result.pitch) / length_per_pixel
+                    # elif (math.radians(-10) <= gaze_yaw < math.radians(-5)
+                    #       or math.radians(10) >= gaze_yaw > math.radians(5)):
+                    #     dx = -DISTANCE_TO_OBJECT * np.tan(result.pitch * 1.5 + face_yaw) / length_per_pixel
+                    # elif (math.radians(-100) <= gaze_yaw < math.radians(-10)
+                    #       or math.radians(100) >= gaze_yaw > math.radians(10)):
+                    #     dx = -DISTANCE_TO_OBJECT * np.tan(result.pitch * 3) / length_per_pixel
+
+                    # dx = -self.distance*10 * np.tan(gaze_yaw * 1.1) / length_per_pixel
+                    # dx = -DISTANCE_TO_OBJECT * np.arccos(result.yaw) * np.tan(result.pitch) / length_per_pixel
+                    # 100000000 is used to denote out of bounds
+                    dx = dx if not np.isnan(dx) else 100000000
+
+                    if gaze_pitch <= face_pitch:
+                        dy = -DISTANCE_TO_OBJECT * np.arccos(gaze_yaw) * np.tan(gaze_pitch) / length_per_pixel
+                    else:
+                        dy = -DISTANCE_TO_OBJECT * np.arccos(gaze_yaw) * np.tan(gaze_pitch - face_pitch) / length_per_pixel
+                    # dy = -DISTANCE_TO_OBJECT * np.arccos(result.pitch) * np.tan(result.yaw) / length_per_pixel
+                    # dy = 0
+                    dy = -DISTANCE_TO_OBJECT * np.arccos(yaw) * np.tan(gaze_pitch) / length_per_pixel
+                    dy = -self.distance * 10 * np.sin(result.yaw)
+
+                    dy = dy if not np.isnan(dy) else 100000000
+                    dx = -self.distance * 10 * np.sin(result.pitch + face_yaw) #* np.cos(result.yaw)
+
+
+                    gaze_point = (int(self.width / 2 + dx),
+                                  int(self.face[0][1] + result.bboxes[0][1] + (result.bboxes[0][3] - result.bboxes[0][1]) / 2 + dy)) #int(self.height / 2 + dy)
+
+                    #int(self.height / 2 + dy)
+                    # int(self.face[0][1] + result.bboxes[0][1] + (result.bboxes[0][3] - result.bboxes[0][1]) / 2 + dy) #int(self.height / 2 + dy)
+
+                    # DADADADA
+                    cv2.circle(frame, gaze_point, 25, (255, 0, 255), -1)
+
+                    if settings.SHOW_SCREEN_GRID:
+                        x_min = None
+                        x_max = None
+                        y_min = None
+                        y_max = None
+                        for i in range(settings.SCREEN_W ):
+                            for j in range(settings.SCREEN_H):
+                                if self.width // settings.SCREEN_W * i <= gaze_point[0] < self.width // settings.SCREEN_W * (i + 1) and self.height // settings.SCREEN_H * j <= gaze_point[1] < self.height // settings.SCREEN_H * (j + 1):
+                                    x_min = self.width // settings.SCREEN_W * i
+                                    x_max = self.width // settings.SCREEN_W * (i + 1)
+                                    y_min = self.height // settings.SCREEN_H * j
+                                    y_max = self.height // settings.SCREEN_H * (j + 1)
+
+                                    sub_img = frame[y_min:y_max, x_min:x_max]
+                                    white_rect = np.ones(sub_img.shape, dtype=np.uint8) * 255
+                                    res = cv2.addWeighted(sub_img, 0.5, white_rect, 0.5, 1.0)
+
+                                    frame[y_min:y_max, x_min:x_max] = res
+                                    cv2.rectangle(frame, (x_min, y_min), (x_max, y_max), (255, 255, 0), 2)
+                                    self.row = i + 1
+
+                                    self.col = j + 1
+
+                                    self.tp += 1
+                                    # cv2.putText(frame, f'{i+1, j + 1}', (self.width // 2, self.height // 2), cv2.FONT_HERSHEY_SIMPLEX, 4, (255, 255, 255), 3)
+
+                                    break
+                        if not (x_min and x_max and y_min and y_max):
+                            cv2.rectangle(frame, (0,0), (self.width, self.height), (255, 255, 0), 5)
+                    # gaze_point = int(self.width / 2 + dx), int(self.height / 2 )
+                    if len(self.points) == 3:
+                        self.points.pop(0)
+                    self.points.append(gaze_point)
+                    print(self.points)
+
+                    if len(self.points) == 3:
+                        gaze_point_x = round(mean([self.points[0][0],self.points[1][0], self.points[2][0]]))
+                        gaze_point_y = round(mean([self.points[0][1],self.points[1][1], self.points[2][1]]))
+                        # cv2.circle(frame, (gaze_point_x, gaze_point_y), 25, (0, 0, 255), -1)
+                    # else:
 
                     # test
+                    DISTANCE_TO_OBJECT = self.distance * 10 # mm
+                    HEIGHT_OF_HUMAN_FACE = 250
+                    length_per_pixel = HEIGHT_OF_HUMAN_FACE / (result.bboxes[0][3] - result.bboxes[0][1])
+                    gaze_pitch = result.yaw[0]
+                    gaze_yaw = result.pitch[0]
+                    # print(length_per_pixel, self.width / 2)
+                    # max yaw = 30
+                    # dx = -(self.width / (self.distance / 100)) * np.tan(gaze_yaw * (self.distance / 100))
+                    dx = -self.width * np.tan(gaze_yaw * (self.distance / 100) + face_yaw)
+                    # print(dx)
+                    dx = dx if not np.isnan(dx) else 100000000
+                    dx = dx * 1
                     if gaze_pitch <= face_pitch:
-                        if -abs(face_yaw) < gaze_yaw <= abs(face_yaw):
-                            cv2.circle(frame, (50, 50), 25, (0,0,255), -1)
-                            yaw = gaze_yaw
-                            # dx = -self.distance * 10 * np.tan(yaw) / length_per_pixel
-                            # dx = -self.distance * 10 * np.tan(gaze_yaw + face_yaw) / length_per_pixel
-                        elif gaze_yaw < -abs(face_yaw):
-                            cv2.circle(frame, (50, 50), 25, (0,255,255), -1)
-                            yaw = gaze_yaw - abs(face_yaw)
-                            # dx = -self.distance * 10 * np.tan(gaze_yaw - abs(face_yaw)) / length_per_pixel
-                        elif gaze_yaw > abs(face_yaw):
-                            cv2.circle(frame, (50, 50), 25, (255,0,255), -1)
-                            yaw = gaze_yaw + abs(face_yaw)
-
-                        dx = -self.distance * 10 * np.tan(yaw) / length_per_pixel
-                        dx = dx if not np.isnan(dx) else 100000000
-                        dy = -self.distance * 10 * np.arccos(yaw) * np.tan(gaze_pitch) / length_per_pixel
-                        dy = dy if not np.isnan(dy) else 100000000
+                        dy = -DISTANCE_TO_OBJECT * np.arccos(gaze_yaw) * np.tan(gaze_pitch) / length_per_pixel
                     else:
-                        if -abs(face_yaw) + math.radians(10) < gaze_yaw <= abs(face_yaw) - math.radians(10):
-                            cv2.circle(frame, (50, 50), 25, (0,0,255), -1)
-                            yaw = gaze_yaw
-                            # dx = -self.distance * 10 * np.tan(yaw) / length_per_pixel
-                            # dx = -self.distance * 10 * np.tan(gaze_yaw + face_yaw) / length_per_pixel
-                        elif gaze_yaw < -abs(face_yaw):
-                            cv2.circle(frame, (50, 50), 25, (0,255,255), -1)
-                            yaw = gaze_yaw - abs(face_yaw) - math.radians(10)
-                            # dx = -self.distance * 10 * np.tan(gaze_yaw - abs(face_yaw)) / length_per_pixel
-                        elif gaze_yaw > abs(face_yaw):
-                            cv2.circle(frame, (50, 50), 25, (255,0,255), -1)
-                            yaw = gaze_yaw + abs(face_yaw) + math.radians(10)
+                        dy = -DISTANCE_TO_OBJECT * np.arccos(gaze_yaw) * np.tan(gaze_pitch - face_pitch) / length_per_pixel
+                    dy = dy if not np.isnan(dy) else 100000000
 
-                        dx = -self.distance * 10 * np.tan(yaw) / length_per_pixel
-                        dx = dx if not np.isnan(dx) else 100000000
-                        dy = -self.distance * 10 * np.arccos(yaw) * np.tan(gaze_pitch - face_pitch) / length_per_pixel
-                        dy = dy if not np.isnan(dy) else 100000000
-                    # if gaze_pitch <= face_pitch:
-                    #     # print(math.degrees(gaze_pitch), math.degrees(face_pitch))
-                    #     # cv2.circle(frame, (50, 50), 25, (0,0,255), -1)
-                    #     # dy = -self.distance * 10 * np.arccos(gaze_yaw + face_yaw) * np.tan(gaze_pitch) / length_per_pixel
-                    #     dy = -self.distance * 10 * np.arccos(yaw) * np.tan(gaze_pitch) / length_per_pixel
-                    #
-                    # else:
-                    #     # dy = -self.distance * 10 * np.arccos(gaze_yaw + face_yaw) * np.tan(gaze_pitch - face_pitch) / length_per_pixel
-                    #     dy = -self.distance * 10 * np.arccos(yaw) * np.tan(gaze_pitch - face_pitch) / length_per_pixel
-                    # dy = dy if not np.isnan(dy) else 100000000
-
-                    cv2.putText(frame, f'gaze yaw: {math.degrees(gaze_yaw):.0f}', (self.face[1][0], self.face[0][1] + 150),
-                                cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 0), 3)
-                    cv2.putText(frame, f'gaze yaw: {math.degrees(gaze_yaw):.0f}', (self.face[1][0], self.face[0][1] + 150),
-                                cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 1)
-                    cv2.putText(frame, f'gaze pitch: {math.degrees(gaze_pitch):.0f}',
-                                (self.face[1][0], self.face[0][1] + 200),
-                                cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 0), 3)
-                    cv2.putText(frame, f'gaze pitch: {math.degrees(gaze_pitch):.0f}',
-                                (self.face[1][0], self.face[0][1] + 200),
-                                cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 1)
-
-                    # dy = -self.distance * 10 * np.tan(result.yaw[0]) / length_per_pixel
-                    # print(np.tan(result.yaw[0]))
-                    print(123, math.degrees(result.yaw[0]))
                     gaze_point = int(self.width / 2 + dx), int(self.height / 2 + dy)
+                    # gaze_point = int(self.width / 2 + dx), int(self.height / 2)
 
-                    cv2.circle(frame, gaze_point, 100, (0,255, 255), -1)
-
-                    # if gaze_point[0] < 0:
-                    #     gaze_point[0] = 25
-                    # elif gaze_point[0] > self.width:
-                    #     gaze_point[0] = self.width - 25
-                    #
-                    # if gaze_point[1] < 0:
-                    #     gaze_point[1] = 25
-                    # elif gaze_point[1] > self.height:
-                    #     gaze_point[1] = self.height - 25
-                    #
-                    # cv2.circle(frame, gaze_point, 25, (255,255, 255), -1)
+                    # cv2.circle(frame, gaze_point, 100, (0, 255, 255), -1)
+                    if settings.SHOW_TEXT:
+                        cv2.putText(frame, f'gaze yaw: {math.degrees(gaze_yaw):.0f}', (self.face[1][0], self.face[0][1] + 150),
+                                    cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 0), 3)
+                        cv2.putText(frame, f'gaze yaw: {math.degrees(gaze_yaw):.0f}', (self.face[1][0], self.face[0][1] + 150),
+                                    cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 1)
+                        cv2.putText(frame, f'gaze pitch: {math.degrees(gaze_pitch):.0f}',
+                                    (self.face[1][0], self.face[0][1] + 200),
+                                    cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 0), 3)
+                        cv2.putText(frame, f'gaze pitch: {math.degrees(gaze_pitch):.0f}',
+                                    (self.face[1][0], self.face[0][1] + 200),
+                                    cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 1)
 
 
                 if 1 == 0:
@@ -900,7 +955,10 @@ class GazeTracking(object):
                     cv2.putText(frame, f'yaw {gaze_yaw:.2f}',(50, 200),cv2.FONT_HERSHEY_PLAIN, 3, (255, 0, 0), 3)
                     cv2.putText(frame, f'pitch {gaze_pitch:.2f}',(50, 300),cv2.FONT_HERSHEY_PLAIN, 3, (255, 0, 0), 3)
 
-            except:
-                ...
+            except ValueError :
+                print('need at least one array to stack')
 
+
+        print(self.fn, self.tp)
+        # input()
         return frame

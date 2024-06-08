@@ -14,18 +14,25 @@ from koeffs import BarrelDeformer
 
 # gaze = GazeTracking()
 # webcam = cv2.VideoCapture('60cm/510_.png')
-# webcam = cv2.VideoCapture('../../tools/output_1605_1.avi')
-webcam = cv2.VideoCapture('../videos/output_120cm.avi')
+# webcam = cv2.VideoCapture('../../tools/output_0606_150_3.avi')
+webcam = cv2.VideoCapture('../../tools/output_0606_120_3.avi')
+
+# webcam = cv2.VideoCapture('../videos/output_120cm.avi') # pupil detection evaluation
 # webcam = cv2.VideoCapture('../videos/crop.mov')
 # webcam = cv2.VideoCapture(1)
+# webcam = cv2.VideoCapture('../photos/550_center.png')
 # webcam = cv2.VideoCapture("rtsp://admin:vide0-II@172.20.6.234:554") # cam 1
 # webcam = cv2.VideoCapture("rtsp://admin:vide0-II@172.20.6.235:554") # cam 2
 # webcam.set(cv2.CAP_PROP_FPS, 1)
 # webcam = cv2.VideoCapture("rtsp://admin:vide0-II@172.20.6.236:554") # cam 3
 
+SOURCE_FPS = webcam.get(cv2.CAP_PROP_FPS)
+
+# fps
 prev_frame_time = 0
 new_frame_time = 0
-arr = []
+
+
 roi = np.load('roi.npy')
 x, y, w, h = roi
 
@@ -35,15 +42,11 @@ frame_width = w
 # frame_height = int(webcam.get(4))
 frame_height = h
 
-out = cv2.VideoWriter('outpy_1005.avi', cv2.VideoWriter_fourcc('M','J','P','G'), 10, (frame_width,frame_height))
+# out = cv2.VideoWriter('outpy_1005.avi', cv2.VideoWriter_fourcc('M','J','P','G'), 10, (frame_width,frame_height))
 counter = 0
 calibration_counter = 0
-x1 = None
-x2 = None
-y1 = None
-y2 = None
-angle = None
 lalala = 0
+
 newcameramtx = np.load('newcameramtx.npy')
 mtx = np.load('mtx.npy')
 dist = np.load('dist.npy')
@@ -54,12 +57,16 @@ with mp.solutions.face_detection.FaceDetection(model_selection=1) as detector:
     while True:
         # We get a new frame from the webcam
         ret, frame = webcam.read()
-        boo = True
-        if lalala == 10 or boo:
+        boo = False
+
+        if not ret:
+            break
+
+        if lalala == SOURCE_FPS or boo:
             lalala = 0
             frame = cv2.undistort(frame, mtx, dist, None, newcameramtx)
             frame = frame[y:y + h, x:x + w]
-            frame = cv2.flip(frame, 1)
+            # frame = cv2.flip(frame, 1)
             if not ret:
                 break
 
@@ -87,34 +94,27 @@ with mp.solutions.face_detection.FaceDetection(model_selection=1) as detector:
             cv2.putText(frame, f'FPS: {fps}', (50, frame_height - 50), cv2.FONT_HERSHEY_SIMPLEX, 2, (0, 0, 0), 7)
             cv2.putText(frame, f'FPS: {fps}', (50, frame_height - 50), cv2.FONT_HERSHEY_SIMPLEX, 2, (255, 255, 255), 2)
 
-            if calibration_counter == 0:
-                # cv2.circle(frame, (0,0), 50, (0, 0, 255), -1)
-                ...
-            elif calibration_counter ==1:
-                cv2.circle(frame, (frame_width, 0), 50, (0, 0, 255), -1)
-            elif calibration_counter == 2:
-                cv2.circle(frame, (frame_width, frame_height), 50, (0, 0, 255), -1)
-            elif calibration_counter == 3:
-                cv2.circle(frame, (0,frame_height), 50, (0, 0, 255), -1)
-            else:
-                for i in range(4):
-                    cv2.circle(frame, (arr[i]), 30, (255, 255, 255), -1)
-            if cv2.waitKey(1) & 0xff == ord('s'):
-                if calibration_counter <= 3:
-                    calibration_counter += 1
-                    arr.append(gaze.vector)
-                else:
-                    print(arr)
 
-            out.write(frame)
+
+            # out.write(frame)
             counter += 1
-            cv2.namedWindow("Demo", cv2.WINDOW_FULLSCREEN)
+            # cv2.namedWindow("Demo", cv2.WND_PROP_FULLSCREEN)
+            # cv2.setWindowProperty("Demo", cv2.WND_PROP_FULLSCREEN, cv2.WINDOW_FULLSCREEN)
 
-            frame = cv2.resize(frame, (2560, 1600))
-            # frame = cv2.resize(frame, (3840, 2160))
+            # cv2.imwrite('word/frame_sectors.png', frame)
+            # cv2.imwrite(f'eval/eval_150_3/{counter}_{gaze.row}_{gaze.col}.png', frame)
+
+            frame = cv2.resize(frame, (3060, 1600))
 
             cv2.imshow("Demo", frame)
-            # cv2.imwrite('60cm_2.png', frame)
+
+            # frame = cv2.resize(frame, (3840, 2160))
+            # cv2.namedWindow(window_name, cv2.WINDOW_NORMAL)
+            # cv2.moveWindow(window_name, screen.x - 1, screen.y - 1)
+            # cv2.setWindowProperty(window_name, cv2.WND_PROP_FULLSCREEN,
+            #                       cv2.WINDOW_FULLSCREEN)
+            # cv2.imshow(window_name, image)
+            # cv2.imwrite(f'eval_120/{counter}_{gaze.row}_{gaze.col}.png', frame)
             if cv2.waitKey(1) == 27:
                 break
         lalala += 1
@@ -124,7 +124,7 @@ with mp.solutions.face_detection.FaceDetection(model_selection=1) as detector:
         #     ...
 
     webcam.release()
-    out.release()
+    # out.release()
 
     cv2.destroyAllWindows()
 

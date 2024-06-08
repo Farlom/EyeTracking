@@ -1,4 +1,3 @@
-import math
 import numpy as np
 import cv2
 from math_pupil import Pupil
@@ -120,7 +119,7 @@ class Eye(object):
             side: Indicates whether it's the left eye (0) or the right eye (1)
             calibration (calibration.Calibration): Manages the binarization threshold value
         """
-        if settings.MEDIAPIPE_EYE_DETECTION:
+        if settings.MEDIAPIPE_PUPIL_DETECTION:
             if side == 0:
                 # points = self.LEFT_EYE_POINTS
                 points = self.LEFT_EYE_IRIS
@@ -136,7 +135,7 @@ class Eye(object):
             self.pupil.x -= self.origin[0]
             self.pupil.y -= self.origin[1]
 
-            print(self.pupil)
+            # print(self.pupil)
 
 
             # (cX_r, cY_r), rad_r = cv2.minEnclosingCircle(mesh_points[RIGHT_IRIS])
