@@ -7,17 +7,14 @@ import cv2
 from mp_gaze_tracking import GazeTracking
 import mediapipe as mp
 import time
-from PIL import Image, ImageOps
 import numpy as np
-import settings
-from koeffs import BarrelDeformer
 
-# gaze = GazeTracking()
+
 # webcam = cv2.VideoCapture('60cm/510_.png')
 # webcam = cv2.VideoCapture('../../tools/output_0606_150_3.avi')
-webcam = cv2.VideoCapture('../../tools/output_0606_120_3.avi')
+# webcam = cv2.VideoCapture('../../tools/output_0606_120_3.avi')
 
-# webcam = cv2.VideoCapture('../videos/output_120cm.avi') # pupil detection evaluation
+webcam = cv2.VideoCapture('../videos/output_120cm.avi') # pupil detection evaluation
 # webcam = cv2.VideoCapture('../videos/crop.mov')
 # webcam = cv2.VideoCapture(1)
 # webcam = cv2.VideoCapture('../photos/550_center.png')
@@ -42,7 +39,7 @@ frame_width = w
 # frame_height = int(webcam.get(4))
 frame_height = h
 
-# out = cv2.VideoWriter('outpy_1005.avi', cv2.VideoWriter_fourcc('M','J','P','G'), 10, (frame_width,frame_height))
+# out = cv2.VideoWriter('outpy_zaschita.avi', cv2.VideoWriter_fourcc('M','J','P','G'), SOURCE_FPS, (frame_width,frame_height))
 counter = 0
 calibration_counter = 0
 lalala = 0
@@ -57,7 +54,7 @@ with mp.solutions.face_detection.FaceDetection(model_selection=1) as detector:
     while True:
         # We get a new frame from the webcam
         ret, frame = webcam.read()
-        boo = False
+        boo = True
 
         if not ret:
             break
@@ -102,7 +99,7 @@ with mp.solutions.face_detection.FaceDetection(model_selection=1) as detector:
             # cv2.setWindowProperty("Demo", cv2.WND_PROP_FULLSCREEN, cv2.WINDOW_FULLSCREEN)
 
             # cv2.imwrite('word/frame_sectors.png', frame)
-            # cv2.imwrite(f'eval/eval_150_3/{counter}_{gaze.row}_{gaze.col}.png', frame)
+            # cv2.imwrite(f'eval2/eval_150_4/{counter}_{gaze.row}_{gaze.col}.png', frame)
 
             frame = cv2.resize(frame, (3060, 1600))
 

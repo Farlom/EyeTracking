@@ -528,9 +528,9 @@ class GazeTracking(object):
         (success, rotation_vector, translation_vector) = cv2.solvePnP(model_points, image_points, camera_matrix,
                                                                       dist_coeffs)
         # if output:
-        #     print("Camera Matrix :\n {0}".format(camera_matrix))
-        #     print("Rotation Vector:\n {0}".format(rotation_vector))
-        #     print("Translation Vector:\n {0}".format(translation_vector))
+        print("Camera Matrix :\n {0}".format(camera_matrix))
+        print("Rotation Vector:\n {0}".format(rotation_vector))
+        print("Translation Vector:\n {0}".format(translation_vector))
 
         x_right, y_right, x_right_center, y_right_center = self.pupil_right_coords()
         # x_right += self.face[0][0]
@@ -783,54 +783,6 @@ class GazeTracking(object):
                     #
                     pitch = CAMERA_ANGLE + face_pitch + gaze_pitch
                     yaw = face_yaw + gaze_yaw
-                    # image_height, image_width = frame.shape[:2]
-
-                    face_center = int(self.face[0][0] + (result.bboxes[0][2] - result.bboxes[0][0])), int(self.face[0][1] + (result.bboxes[0][3] - result.bboxes[0][1]))
-                    # print(result)
-                    arrow_length = self.width * 2
-                    dx = -self.distance * 10 * np.sin(result.pitch) #* np.cos(result.yaw)
-                    if gaze_pitch <= face_pitch:
-                        dy = -DISTANCE_TO_OBJECT * np.arccos(gaze_yaw) * np.tan(gaze_pitch) / length_per_pixel
-                    else:
-                        dy = -DISTANCE_TO_OBJECT * np.arccos(gaze_yaw) * np.tan(gaze_pitch - face_pitch) / length_per_pixel
-                    dy = -DISTANCE_TO_OBJECT * np.arccos(result.pitch) * np.tan(result.yaw) / length_per_pixel
-                    dy = -DISTANCE_TO_OBJECT * np.tan(gaze_pitch + CAMERA_ANGLE) / length_per_pixel
-                    dy = -self.distance * 10 * np.sin(result.yaw)
-
-                    # dy = 0
-                    # dy = -DISTANCE_TO_OBJECT * np.arccos(yaw) * np.tan(pitch) / length_per_pixel
-
-                    dy = dy if not np.isnan(dy) else 100000000
-                    # dy = -self.distance * 10  * np.sin(result.yaw)
-                    # dy = -DISTANCE_TO_OBJECT * np.arccos(result.pitch) * np.tan(result.yaw) / length_per_pixel
-
-                    # DADADADA
-                    cv2.circle(
-                        frame,
-                        (int(self.face[0][0] + result.bboxes[0][0] + (result.bboxes[0][2] - result.bboxes[0][0]) / 2 + dx),
-                         int(self.face[0][1] + result.bboxes[0][1] + (result.bboxes[0][3] - result.bboxes[0][1]) / 2 + dy)),
-                         # int(self.height / 2 + dy)),
-                        30,
-                        (0, 255, 255),
-                        -1,
-                    )
-
-                    # rect
-                    # cv2.rectangle(frame, (int(self.face[0][0] + result.bboxes[0][0]), int(self.face[0][1] + result.bboxes[0][1])),  (int( self.face[0][0] + result.bboxes[0][2]), int( self.face[0][1] + result.bboxes[0][3])), (255,255,255), 1)
-
-                    # if math.radians(-5) <= gaze_yaw <= math.radians(5):
-                    #     dx = -DISTANCE_TO_OBJECT * np.tan(result.pitch) / length_per_pixel
-                    # elif (math.radians(-10) <= gaze_yaw < math.radians(-5)
-                    #       or math.radians(10) >= gaze_yaw > math.radians(5)):
-                    #     dx = -DISTANCE_TO_OBJECT * np.tan(result.pitch * 1.5 + face_yaw) / length_per_pixel
-                    # elif (math.radians(-100) <= gaze_yaw < math.radians(-10)
-                    #       or math.radians(100) >= gaze_yaw > math.radians(10)):
-                    #     dx = -DISTANCE_TO_OBJECT * np.tan(result.pitch * 3) / length_per_pixel
-
-                    # dx = -self.distance*10 * np.tan(gaze_yaw * 1.1) / length_per_pixel
-                    # dx = -DISTANCE_TO_OBJECT * np.arccos(result.yaw) * np.tan(result.pitch) / length_per_pixel
-                    # 100000000 is used to denote out of bounds
-                    dx = dx if not np.isnan(dx) else 100000000
 
                     if gaze_pitch <= face_pitch:
                         dy = -DISTANCE_TO_OBJECT * np.arccos(gaze_yaw) * np.tan(gaze_pitch) / length_per_pixel
@@ -845,8 +797,8 @@ class GazeTracking(object):
                     dx = -self.distance * 10 * np.sin(result.pitch + face_yaw) #* np.cos(result.yaw)
 
 
-                    gaze_point = (int(self.width / 2 + dx),
-                                  int(self.face[0][1] + result.bboxes[0][1] + (result.bboxes[0][3] - result.bboxes[0][1]) / 2 + dy)) #int(self.height / 2 + dy)
+                    gaze_point = (int(self.width / 2 + dx), int(self.height / 2 + dy))
+                                  # int(self.face[0][1] + result.bboxes[0][1] + (result.bboxes[0][3] - result.bboxes[0][1]) / 2 + dy)) #int(self.height / 2 + dy)
 
                     #int(self.height / 2 + dy)
                     # int(self.face[0][1] + result.bboxes[0][1] + (result.bboxes[0][3] - result.bboxes[0][1]) / 2 + dy) #int(self.height / 2 + dy)
@@ -959,6 +911,6 @@ class GazeTracking(object):
                 print('need at least one array to stack')
 
 
-        print(self.fn, self.tp)
+        # print(self.pupil_left_coords(), 1111)
         # input()
         return frame
