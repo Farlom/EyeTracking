@@ -59,7 +59,7 @@ class GazeTracking(object):
         self.points = []
         self.CWD = pathlib.Path.cwd()
         self.gaze_pipeline = Pipeline(
-            weights= self.CWD / 'models' / 'L2CSNet_gaze360.pkl',
+            weights= self.CWD / 'models' / 'model_gaze360.pkl',
             arch='ResNet50',
             device=torch.device('cpu')  # or 'gpu'
         )

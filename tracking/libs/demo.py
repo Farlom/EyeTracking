@@ -15,7 +15,7 @@ import numpy as np
 # webcam = cv2.VideoCapture('../../tools/output_0606_120_3.avi')
 
 webcam = cv2.VideoCapture('../videos/output_120cm.avi') # pupil detection evaluation
-# webcam = cv2.VideoCapture('../videos/crop.mov')
+# webcam = cv2.VideoCapture('../videos/cropped.mov')
 # webcam = cv2.VideoCapture(1)
 # webcam = cv2.VideoCapture('../photos/550_center.png')
 # webcam = cv2.VideoCapture("rtsp://admin:vide0-II@172.20.6.234:554") # cam 1
