@@ -22,4 +22,15 @@ pip install git+https://github.com/edavalosanaya/L2CS-Net.git@main
 
 * [Скачать модель](https://drive.google.com/drive/folders/1qDzyzXO6iaYIMDJDSyfKeqBx8O74mF8s?usp=drive_link), переименовать файл в *"model_gaze360.pkl"* и сохранить его в *./tracking/libs/models/*.
 
+## Запуск
+Запуск скрипта (выбор источника изображения также в данном файле)
+```
+python ./tracking/libs/demo.py
+```
+
+Конфигурация алгоритма
+```
+nano ./tracking/libs/settings.py
+```
+
 
